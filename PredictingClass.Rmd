@@ -1,0 +1,85 @@
+---
+title: "PredictingClasse"
+author: "Augusto Abe"
+date: "03/11/2020"
+output: html_document
+---
+
+Loading the data sets
+```{r}
+training <- read.csv("pml-training.csv")
+testing <- read.csv("pml-testing.csv")
+```
+
+Looking at variable with NA's.
+```{r}
+num_nas <- c()
+num_rows <- nrow(training)
+num_cols <- ncol(training)
+
+for(i in 1:num_cols){
+        nas <- is.na(training[,i])
+        num_nas <- c(num_nas, length(nas[nas]))
+}
+
+as.numeric(levels(as.factor(num_nas)))/num_rows
+```
+Variables or do not have NA or 98% of your observations are NA so this varibles with NA's will be excluded
+```{r}
+var_nas <- num_nas > 0
+training <- training[,!var_nas]
+```
+
+Now we will do the same thing with empty values ("").
+```{r}
+num_empties <- c()
+num_cols <- ncol(training)
+
+for(i in 1:num_cols){
+        empties <- training[,i] == ""
+        num_empties <- c(num_empties, length(empties[empties]))
+}
+
+as.numeric(levels(as.factor(num_nas)))/num_rows
+```
+This is the same result as NA.
+```{r}
+var_empties <- num_empties > 0
+training <- training[,!var_empties]
+```
+
+
+Now we will change the class of the variables or guarentee that they belong to the correct class.
+```{r}
+training$user_name <- as.factor(training$user_name)
+training$classe <- as.factor(training$classe)
+training$cvtd_timestamp <- as.POSIXct(training$cvtd_timestamp, format = "%d/%m/%Y %H:%M")
+training$new_window <- as.factor(training$new_window)
+
+for(i in c(2, 3, 6:58 )){
+        training[,i] <- as.numeric(training[,i])
+}
+```
+Now our data set is cleaned.
+
+
+```{r}
+model1 <- train(classe~., data = training, method = "lda",
+               trControl = trainControl(method = "cv",
+                                        number = 10,
+                                        verboseIter = TRUE))
+
+t1 <- testing[,!all_empties]
+t1 <- t1[,-1]
+t1$user_name <- as.factor(t1$user_name)
+t1$cvtd_timestamp <- as.POSIXct(t1$cvtd_timestamp, format = "%d/%m/%Y %H:%M")
+t1$new_window <- as.factor(t1$new_window)
+
+for(i in c(2, 3, 6:58 )){
+  t1[,i] <- as.numeric(t1[,i])
+}
+
+
+predict(model, t1)
+```
+
