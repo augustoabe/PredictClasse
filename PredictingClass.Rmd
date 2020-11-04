@@ -2,7 +2,9 @@
 title: "PredictingClasse"
 author: "Augusto Abe"
 date: "03/11/2020"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 Loading the data sets
@@ -11,7 +13,7 @@ training <- read.csv("pml-training.csv")
 testing <- read.csv("pml-testing.csv")
 ```
 
-Looking at variable with NA's.
+Looking at variables with NAs.
 ```{r}
 num_nas <- c()
 num_rows <- nrow(training)
@@ -24,7 +26,7 @@ for(i in 1:num_cols){
 
 as.numeric(levels(as.factor(num_nas)))/num_rows
 ```
-Variables or do not have NA or 98% of your observations are NA so this varibles with NA's will be excluded
+Variables or do not have NA or 98% of your observations are NA so this variables with NAs will be excluded
 ```{r}
 var_nas <- num_nas > 0
 training <- training[,!var_nas]
@@ -49,8 +51,9 @@ training <- training[,!var_empties]
 ```
 
 
-Now we will change the class of the variables or guarentee that they belong to the correct class.
+Now we will change the class of the variables or guarantee that they belong to the correct class and remove X column.
 ```{r}
+training <- training[,-1]
 training$user_name <- as.factor(training$user_name)
 training$classe <- as.factor(training$classe)
 training$cvtd_timestamp <- as.POSIXct(training$cvtd_timestamp, format = "%d/%m/%Y %H:%M")
@@ -62,24 +65,53 @@ for(i in c(2, 3, 6:58 )){
 ```
 Now our data set is cleaned.
 
+As our variable to be predicted is categorical we try test three models: linear discriminant analysis, tree and random forest
 
+Linear discriminant analysis:
 ```{r}
-model1 <- train(classe~., data = training, method = "lda",
+library(caret)
+model_lda <- train(classe~., data = training, method = "lda",
                trControl = trainControl(method = "cv",
-                                        number = 10,
-                                        verboseIter = TRUE))
+                                        number = 10))
 
-t1 <- testing[,!all_empties]
-t1 <- t1[,-1]
-t1$user_name <- as.factor(t1$user_name)
-t1$cvtd_timestamp <- as.POSIXct(t1$cvtd_timestamp, format = "%d/%m/%Y %H:%M")
-t1$new_window <- as.factor(t1$new_window)
+print(model_lda)
+```
+
+Tree:
+```{r}
+model_tree <- train(classe~., data = training, method = "rpart",
+               trControl = trainControl(method = "cv",
+                                        number = 10))
+
+print(model_tree)
+```
+
+Random Forest:
+```{r}
+model_rf <- train(classe~., data = training, method = "rf",
+               trControl = trainControl(method = "cv",
+                                        number = 10))
+
+print(model_rf)
+```
+From the three model the random forest has the highest precision so this will be the final model.
+
+Processing the test set.
+```{r}
+testing <- testing[,!var_nas]
+testing <- testing[,!var_empties]
+testing <- testing[,-1]
+testing$user_name <- as.factor(testing$user_name)
+testing$cvtd_timestamp <- as.POSIXct(testing$cvtd_timestamp, format = "%d/%m/%Y %H:%M")
+testing$new_window <- as.factor(testing$new_window)
 
 for(i in c(2, 3, 6:58 )){
-  t1[,i] <- as.numeric(t1[,i])
+        testing[,i] <- as.numeric(testing[,i])
 }
+```
 
-
-predict(model, t1)
+Now we can predict in the test set.
+```{r}
+predict(model_rf, testing)
 ```
 
